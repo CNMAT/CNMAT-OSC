@@ -5,11 +5,6 @@ CFLAGS=  -O2 -I$(LIBOSCDIR)
 DUMPOBJS=dumpOSC.o
 
 
-both: sendOSC dumpOSC
-
-sendOSC: sendOSC.o htmsocket.o ${LIBOSC}
-	${CC} -o sendOSC sendOSC.o htmsocket.o  ${LIBOSC}
-
 dumpOSC: ${DUMPOBJS}
 	${CC} -o $@ ${DUMPOBJS}
 	
@@ -20,6 +15,4 @@ ${LIBOSC}:
 	echo "You need to go to " ${LIBOSCDIR} " and do a make."
 
 clean:
-	rm -f sendOSC dumpOSC *.o
-
-
+	rm -f dumpOSC *.o
