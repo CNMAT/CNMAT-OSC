@@ -42,7 +42,7 @@ Technologies, University of California, Berkeley.
        things Linux-friendly.  Also added ntohl() in the right places
        to support little-endian architectures.
  
-
+     1/13/03 Make it compile on OSX.
 
 	compile:
 		cc -o dumpOSC dumpOSC.c
@@ -60,7 +60,6 @@ Technologies, University of California, Berkeley.
 */
 
 
-#if defined(__sgi) || defined(__linux)
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -83,13 +82,15 @@ Technologies, University of California, Berkeley.
 #include <signal.h>
 #include <grp.h>
 #include <sys/file.h>
-#include <sys/prctl.h>
 
 #ifdef NEED_SCHEDCTL_AND_LOCK
 #include <sys/schedctl.h>
 #include <sys/lock.h>
 #endif
 
+#if defined(__APPLE__) && defined(__GNUC__)
+#define OSX
+#endif
 
 char *htm_error_string;
 typedef int Boolean;
@@ -123,13 +124,15 @@ char *DataAfterAlignedString(char *string, char *boundary) ;
 Boolean IsNiceString(char *string, char *boundary) ;
 void complain(char *s, ...);
 
+extern int errno;
 
 #define UNIXDG_PATH "/tmp/htm"
-#define UNIXDG_TMP "/tmp/htm.XXXXXX"
+
 static int unixinitudp(int chan)
 {
 	struct sockaddr_un serv_addr;
 	int  sockfd;
+	int filenameLength;
 	
 	if((sockfd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0)
 			return sockfd;
@@ -137,9 +140,19 @@ static int unixinitudp(int chan)
 	bzero((char *)&serv_addr, sizeof(serv_addr));
 	serv_addr.sun_family = AF_UNIX;
 	strcpy(serv_addr.sun_path, UNIXDG_PATH);
+
 	sprintf(serv_addr.sun_path+strlen(serv_addr.sun_path), "%d", chan);
-	 unlink(serv_addr.sun_path);
-	if(bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr.sun_family)+strlen(serv_addr.sun_path)) < 0)
+
+	unlink(serv_addr.sun_path);
+
+	filenameLength = sizeof(serv_addr.sun_family)+strlen(serv_addr.sun_path);
+
+#ifdef OSX
+	/* Somehow the bind() call on OSX creates a file with the last character missing */
+	++filenameLength;
+#endif
+
+	if(bind(sockfd, (struct sockaddr *) &serv_addr, filenameLength) < 0)
 	{
 		perror("unable to  bind\n");
 		return -1;
@@ -232,6 +245,7 @@ static int caught_sigint;
 static void catch_sigint()  {
    caught_sigint = 1;
 }
+
 static int sockfd, usockfd;
 
 
@@ -560,15 +574,21 @@ static char mbuf[MAXMESG];
 int main(int argc, char **argv) {
     int udp_port;		/* port to receive parameter updates from */
 		
-	struct sockaddr_in  cl_addr;
-	int clilen,maxclilen=sizeof(cl_addr);
-	struct sockaddr_un  ucl_addr;
-	int uclilen,umaxclilen=sizeof(ucl_addr);
-	int i,n;
+#ifdef OSX
+    struct sockaddr cl_addr;
+    struct sockaddr ucl_addr;
+#else
+    struct sockaddr_in  cl_addr;
+    struct sockaddr_un  ucl_addr;
+#endif
+
+    int clilen,maxclilen=sizeof(cl_addr);
+
+    int uclilen,umaxclilen=sizeof(ucl_addr);
+    int i,n;
 	
-		
-	clilen = maxclilen;
-	uclilen = umaxclilen;
+    clilen = maxclilen;
+    uclilen = umaxclilen;
 
     udp_port = -1;
     for (i=1; i < argc; ++i) {
@@ -608,10 +628,14 @@ int main(int argc, char **argv) {
 
     if (!Silent) {
 	printf("dumpOSC version 0.2 (6/18/97 Matt Wright). Unix/UDP Port %d \n", udp_port);	
-	printf("Copyright (c) 1992,1996,1997 Regents of the University of California.\n");
+	printf("Copyright (c) 1992,96,97,98,99,2000,01,02,03 Regents of the University of California.\n");
     }
-	if(sockfd>=0 && usockfd>=0)
-	{
+
+    if (sockfd < 0) {
+      perror("initudp");
+    } else if (usockfd < 0) {
+      perror("unixinitudp");
+    } else {
 		fd_set read_fds, write_fds;
 		int nfds;
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -631,7 +655,13 @@ printf("polldev %d\n", polldevs[j].fd);
 		printf("nfds %d\n", nfds);
 */
 		caught_sigint = 0;
-   		sigset(SIGINT, catch_sigint);       /* set sig handler       */
+
+		/* Set signal handler */
+#ifdef OSX
+		signal(SIGINT, catch_sigint);
+#else
+   		sigset(SIGINT, catch_sigint);
+#endif
 	
 		while(!caught_sigint)
 		{
@@ -654,7 +684,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		        r = select(nfds, &read_fds, &write_fds, (fd_set *)0, 
 		                        (struct timeval *)0);
 		        if (r < 0)  /* select reported an error */
-			    goto out;
+			  return;
 		        {
 			    int j;
 			    
@@ -671,7 +701,7 @@ printf("polldev %d\n", polldevs[j].fd);
 				  /* printf("received UDP packet of length %d\n",  n); */
 				  r = Synthmessage(mbuf, n, &cl_addr, clilen, sockfd) ;
 
-				  if( sgi_HaveToQuit()) goto out;
+				  if( sgi_HaveToQuit()) return;
 				  if(r>0) goto back;
 				  clilen = maxclilen;
 				}
@@ -686,20 +716,15 @@ printf("polldev %d\n", polldevs[j].fd);
 
 				  r=Synthmessage(mbuf, n, &ucl_addr, uclilen,usockfd) ;
 
-				  if( sgi_HaveToQuit()) goto out;
+				  if( sgi_HaveToQuit()) return;
 				  if(r>0) goto back;
 				  uclilen = umaxclilen;
 				}
 			}
 		} /* End of while(!caught_sigint) */
-		
-		
-out: ;
-	}
-	else
-		perror("initudp");
+    }
 	
-	return 0;
+    return 0;
 }
 
 
@@ -712,5 +737,3 @@ void complain(char *s, ...) {
     fprintf(stderr, "\n");
     va_end(ap);
 }
-
-#endif /* __sgi or LINUX */
