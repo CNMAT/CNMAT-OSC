@@ -1,29 +1,24 @@
 /*
-Copyright (c) 1996.  The Regents of the University of California (Regents).
-All Rights Reserved.
-
-Permission to use, copy, modify, and distribute this software and its
-documentation for educational, research, and not-for-profit purposes, without
-fee and without a signed licensing agreement, is hereby granted, provided that
-the above copyright notice, this paragraph and the following two paragraphs
-appear in all copies, modifications, and distributions.  Contact The Office of
-Technology Licensing, UC Berkeley, 2150 Shattuck Avenue, Suite 510, Berkeley,
-CA 94720-1620, (510) 643-7201, for commercial licensing opportunities.
-
 Written by Matt Wright, The Center for New Music and Audio Technologies,
-University of California, Berkeley.
+University of California, Berkeley.  Copyright (c) 1996,97,98,99,2000,01,02,03
+The Regents of the University of California (Regents).  
 
-     IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
-     SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
-     ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-     REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Permission to use, copy, modify, distribute, and distribute modified versions
+of this software and its documentation without fee and without a signed
+licensing agreement, is hereby granted, provided that the above copyright
+notice, this paragraph and the following two paragraphs appear in all copies,
+modifications, and distributions.
 
-     REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
-     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-     FOR A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING
-     DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS".
-     REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
-     ENHANCEMENTS, OR MODIFICATIONS.
+IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING
+OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF REGENTS HAS
+BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED
+HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
+MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 */
 
 
@@ -31,6 +26,8 @@ University of California, Berkeley.
   Author: Matt Wright
   Version 2.2: Calls htonl in the right places 20000620
   Version 2.3: Gets typed messages right.
+  Version 2.4: 031215: (re)added ChangeOutermostTimestamp(), htonl() OSX kludge
+  
  */
 
 
@@ -46,8 +43,12 @@ University of California, Berkeley.
 #define DONE 4         /* All open bundles have been closed, so can't write 
 		          anything else */
 
-
 #include "OSC-client.h"
+
+#ifdef TARGET_API_MAC_CARBON
+/* KLUDGE for OSX: */
+#define htonl(x) (x)
+#endif 
 
 char *OSC_errorMessage;
 
@@ -69,6 +70,7 @@ void OSC_resetBuffer(OSCbuf *buf) {
     buf->state = EMPTY;
     buf->bundleDepth = 0;
     buf->prevCounts[0] = 0;
+	buf->outerMostTimeStamp = 0;
     buf->gettingFirstUntypedArg = 0;
     buf->typeStringPtr = 0;
 }
@@ -163,22 +165,26 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
 
 
     *((OSCTimeTag *) buf->bufptr) = tt;
+    if (buf->state == EMPTY) {
+    	    buf->outerMostTimeStamp = (OSCTimeTag *) buf->bufptr;
+    }
+
 
     if (htonl(1) != 1) {
-	/* Byte swap the 8-byte integer time tag */
-	int4byte *intp = (int4byte *)buf->bufptr;
-	intp[0] = htonl(intp[0]);
-	intp[1] = htonl(intp[1]);
+		/* Byte swap the 8-byte integer time tag */
+		int4byte *intp = (int4byte *)buf->bufptr;
+		intp[0] = htonl(intp[0]);
+		intp[1] = htonl(intp[1]);
 
 #ifdef HAS8BYTEINT
-	{ /* tt is a 64-bit int so we have to swap the two 32-bit words. 
-	    (Otherwise tt is a struct of two 32-bit words, and even though
-	     each word was wrong-endian, they were in the right order
-	     in the struct.) */
-	    int4byte temp = intp[0];
-	    intp[0] = intp[1];
-	    intp[1] = temp;
-	}
+		{ /* tt is a 64-bit int so we have to swap the two 32-bit words. 
+	    	(Otherwise tt is a struct of two 32-bit words, and even though
+	    	 each word was wrong-endian, they were in the right order
+	    	 in the struct.) */
+	    	int4byte temp = intp[0];
+	    	intp[0] = intp[1];
+	    	intp[1] = temp;
+		}
 #endif
     }
 
@@ -189,6 +195,18 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
     buf->gettingFirstUntypedArg = 0;
     buf->typeStringPtr = 0;
     return 0;
+}
+
+
+
+int ChangeOutermostTimestamp(OSCbuf *buf, OSCTimeTag tt) {
+	if (buf->outerMostTimeStamp == 0) {
+		OSC_errorMessage = "No outermost timestamp to change.";
+		return 1;
+	} else {
+		*(buf->outerMostTimeStamp) = tt;
+		return 0;
+	}
 }
 
 
@@ -313,7 +331,7 @@ static int CheckTypeTag(OSCbuf *buf, char expectedType) {
 	    } else {
 		OSC_errorMessage =
 		    "According to the type tag I expected an argument of a different type.";
-		printf("* Expected %c, string now %s\n", expectedType, buf->typeStringPtr);
+		/* printf("* Expected %c, string now %s\n", expectedType, buf->typeStringPtr); */
 	    }
 	    return 9; 
 	}

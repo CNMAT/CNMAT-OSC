@@ -1,29 +1,24 @@
 /*
-Copyright (c) 1996,1997.  The Regents of the University of California (Regents).
-All Rights Reserved.
-
-Permission to use, copy, modify, and distribute this software and its
-documentation for educational, research, and not-for-profit purposes, without
-fee and without a signed licensing agreement, is hereby granted, provided that
-the above copyright notice, this paragraph and the following two paragraphs
-appear in all copies, modifications, and distributions.  Contact The Office of
-Technology Licensing, UC Berkeley, 2150 Shattuck Avenue, Suite 510, Berkeley,
-CA 94720-1620, (510) 643-7201, for commercial licensing opportunities.
-
 Written by Matt Wright, The Center for New Music and Audio Technologies,
-University of California, Berkeley.
+University of California, Berkeley.  Copyright (c) 1996,97,98,99,2000,01,02,03
+The Regents of the University of California (Regents).  
 
-     IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
-     SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
-     ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
-     REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Permission to use, copy, modify, distribute, and distribute modified versions
+of this software and its documentation without fee and without a signed
+licensing agreement, is hereby granted, provided that the above copyright
+notice, this paragraph and the following two paragraphs appear in all copies,
+modifications, and distributions.
 
-     REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT
-     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-     FOR A PARTICULAR PURPOSE. THE SOFTWARE AND ACCOMPANYING
-     DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS".
-     REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
-     ENHANCEMENTS, OR MODIFICATIONS.
+IN NO EVENT SHALL REGENTS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING
+OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF REGENTS HAS
+BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED
+HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
+MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 */
 
 /* 
@@ -33,6 +28,7 @@ University of California, Berkeley.
    Author: Matt Wright
    Version 0.1: 6/13/97
    Version 0.2: 7/21/2000: Support for type-tagged messages
+   Version 0.3: 031215: (re)added ChangeOutermostTimestamp()
 
 
    General notes:
@@ -91,6 +87,7 @@ typedef struct OSCbuf_struct {
 			     /* Pointers to count field before each currently
 			        open bundle */
     int bundleDepth;	     /* How many sub-sub-bundles are we in now? */
+	OSCTimeTag *outerMostTimeStamp;    /* Pointer to highest-level enclosing timestamp */
     char *typeStringPtr;    /* This pointer advances through the type
 			       tag string as you add arguments. */
     int gettingFirstUntypedArg;	/* nonzero if this message doesn't have
@@ -129,6 +126,8 @@ int OSC_isBufferDone(OSCbuf *buf);
 char *OSC_getPacket(OSCbuf *buf);
 int OSC_packetSize(OSCbuf *buf);
 
+/* If a packet already has a timestamp, change it to the given new one. */
+int ChangeOutermostTimestamp(OSCbuf *buf, OSCTimeTag tt);
 
 
 /* Here's the basic model for building up OSC messages in an OSCbuf:
