@@ -61,7 +61,6 @@ University of California, Berkeley.
 #include <sys/file.h>
 #include <sys/time.h>
 #include <sys/types.h>
-/* #include <sys/prctl.h>  Unneeded on Linux and OSX.  SGI? */
 
 #include <stdlib.h>
 
