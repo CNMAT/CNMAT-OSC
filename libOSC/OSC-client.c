@@ -30,6 +30,7 @@ University of California, Berkeley.
 /* 
   Author: Matt Wright
   Version 2.2: Calls htonl in the right places 20000620
+  Version 2.3: Gets typed messages right.
  */
 
 
@@ -45,6 +46,7 @@ University of California, Berkeley.
 #define DONE 4         /* All open bundles have been closed, so can't write 
 		          anything else */
 
+
 #include "OSC-client.h"
 
 char *OSC_errorMessage;
@@ -52,6 +54,9 @@ char *OSC_errorMessage;
 
 static int strlen(char *s);
 static int OSC_padString(char *dest, char *str);
+static int OSC_padStringWithAnExtraStupidComma(char *dest, char *str);
+static int OSC_WritePadding(char *dest, int i);
+static int CheckTypeTag(OSCbuf *buf, char expectedType);
 
 void OSC_initBuffer(OSCbuf *buf, int size, char *byteArray) {
     buf->buffer = byteArray;
@@ -64,6 +69,8 @@ void OSC_resetBuffer(OSCbuf *buf) {
     buf->state = EMPTY;
     buf->bundleDepth = 0;
     buf->prevCounts[0] = 0;
+    buf->gettingFirstUntypedArg = 0;
+    buf->typeStringPtr = 0;
 }
 
 int OSC_isBufferEmpty(OSCbuf *buf) {
@@ -133,6 +140,8 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
 	return 2;
     }
 
+    if (CheckTypeTag(buf, '\0')) return 9;
+
     if (buf->state == GET_ARGS) {
 	PatchMessageSize(buf);
     }
@@ -151,19 +160,34 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
     }
 
     buf->bufptr += OSC_padString(buf->bufptr, "#bundle");
+
+
     *((OSCTimeTag *) buf->bufptr) = tt;
 
     if (htonl(1) != 1) {
 	/* Byte swap the 8-byte integer time tag */
 	int4byte *intp = (int4byte *)buf->bufptr;
-	int4byte temp = htonl(intp[0]);
-	intp[0] = htonl(intp[1]);
-	intp[1] = temp;
+	intp[0] = htonl(intp[0]);
+	intp[1] = htonl(intp[1]);
+
+#ifdef HAS8BYTEINT
+	{ /* tt is a 64-bit int so we have to swap the two 32-bit words. 
+	    (Otherwise tt is a struct of two 32-bit words, and even though
+	     each word was wrong-endian, they were in the right order
+	     in the struct.) */
+	    int4byte temp = intp[0];
+	    intp[0] = intp[1];
+	    intp[1] = temp;
+	}
+#endif
     }
 
     buf->bufptr += sizeof(OSCTimeTag);
 
     buf->state = NEED_COUNT;
+
+    buf->gettingFirstUntypedArg = 0;
+    buf->typeStringPtr = 0;
     return 0;
 }
 
@@ -174,6 +198,8 @@ int OSC_closeBundle(OSCbuf *buf) {
 	OSC_errorMessage = "Can't close bundle; no bundle is open!";
 	return 5;
     }
+
+    if (CheckTypeTag(buf, '\0')) return 9;
 
     if (buf->state == GET_ARGS) {
         PatchMessageSize(buf);
@@ -190,9 +216,11 @@ int OSC_closeBundle(OSCbuf *buf) {
     }
 
     --buf->bundleDepth;
+    buf->gettingFirstUntypedArg = 0;
+    buf->typeStringPtr = 0;
     return 0;
 }
-	
+
 
 int OSC_closeAllBundles(OSCbuf *buf) {
     if (buf->bundleDepth == 0) {
@@ -201,9 +229,12 @@ int OSC_closeAllBundles(OSCbuf *buf) {
         return 6;
     }
 
+    if (CheckTypeTag(buf, '\0')) return 9;
+
     while (buf->bundleDepth > 0) {
 	OSC_closeBundle(buf);
     }
+    buf->typeStringPtr = 0;
     return 0;
 }
 
@@ -219,6 +250,8 @@ int OSC_writeAddress(OSCbuf *buf, char *name) {
         OSC_errorMessage = "This packet is finished; can't write another address";
         return 8;
     }
+
+    if (CheckTypeTag(buf, '\0')) return 9;
 
     paddedLength = OSC_effectiveStringLength(name);
 
@@ -241,21 +274,74 @@ int OSC_writeAddress(OSCbuf *buf, char *name) {
 
     /* Now write the name */
     buf->bufptr += OSC_padString(buf->bufptr, name);
+    buf->typeStringPtr = 0;
+    buf->gettingFirstUntypedArg = 1;
+
     return 0;
 }
 
+int OSC_writeAddressAndTypes(OSCbuf *buf, char *name, char *types) {
+    int result;
+    int4byte paddedLength;
+
+    if (CheckTypeTag(buf, '\0')) return 9;
+
+    result = OSC_writeAddress(buf, name);
+
+    if (result) return result;
+
+    paddedLength = OSC_effectiveStringLength(types);
+
+    CheckOverflow(buf, paddedLength);    
+
+    buf->typeStringPtr = buf->bufptr + 1; /* skip comma */
+    buf->bufptr += OSC_padString(buf->bufptr, types);
+
+    buf->gettingFirstUntypedArg = 0;
+    return 0;
+}
+
+static int CheckTypeTag(OSCbuf *buf, char expectedType) {
+    if (buf->typeStringPtr) {
+	if (*(buf->typeStringPtr) != expectedType) {
+	    if (expectedType == '\0') {
+		OSC_errorMessage =
+		    "According to the type tag I expected more arguments.";
+	    } else if (*(buf->typeStringPtr) == '\0') {
+		OSC_errorMessage =
+		    "According to the type tag I didn't expect any more arguments.";
+	    } else {
+		OSC_errorMessage =
+		    "According to the type tag I expected an argument of a different type.";
+		printf("* Expected %c, string now %s\n", expectedType, buf->typeStringPtr);
+	    }
+	    return 9; 
+	}
+	++(buf->typeStringPtr);
+    }
+    return 0;
+}
+
+
 int OSC_writeFloatArg(OSCbuf *buf, float arg) {
     int4byte *intp;
+    int result;
 
     CheckOverflow(buf, 4);
+
+    if (CheckTypeTag(buf, 'f')) return 9;
 
     /* Pretend arg is a long int so we can use htonl() */
     intp = ((int4byte *) &arg);
     *((int4byte *) buf->bufptr) = htonl(*intp);
 
     buf->bufptr += 4;
+
+    buf->gettingFirstUntypedArg = 0;
     return 0;
 }
+
+
 
 int OSC_writeFloatArgs(OSCbuf *buf, int numFloats, float *args) {
     int i;
@@ -267,23 +353,51 @@ int OSC_writeFloatArgs(OSCbuf *buf, int numFloats, float *args) {
     intp = ((int4byte *) args);
 
     for (i = 0; i < numFloats; i++) {
+	if (CheckTypeTag(buf, 'f')) return 9;
 	*((int4byte *) buf->bufptr) = htonl(intp[i]);
 	buf->bufptr += 4;
     }
+
+    buf->gettingFirstUntypedArg = 0;
     return 0;
 }
 
 int OSC_writeIntArg(OSCbuf *buf, int4byte arg) {
     CheckOverflow(buf, 4);
+    if (CheckTypeTag(buf, 'i')) return 9;
+
     *((int4byte *) buf->bufptr) = htonl(arg);
     buf->bufptr += 4;
+
+    buf->gettingFirstUntypedArg = 0;
     return 0;
 }
 
 int OSC_writeStringArg(OSCbuf *buf, char *arg) {
-    CheckOverflow(buf, OSC_effectiveStringLength(arg));
-    buf->bufptr += OSC_padString(buf->bufptr, arg);
+    int len;
+
+    if (CheckTypeTag(buf, 's')) return 9;
+
+    len = OSC_effectiveStringLength(arg);
+
+    if (buf->gettingFirstUntypedArg && arg[0] == ',') {
+	/* This un-type-tagged message starts with a string
+	   that starts with a comma, so we have to escape it
+	   (with a double comma) so it won't look like a type
+	   tag string. */
+
+	CheckOverflow(buf, len+4); /* Too conservative */
+	buf->bufptr += 
+	    OSC_padStringWithAnExtraStupidComma(buf->bufptr, arg);
+
+    } else {
+	CheckOverflow(buf, len);
+	buf->bufptr += OSC_padString(buf->bufptr, arg);
+    }
+
+    buf->gettingFirstUntypedArg = 0;
     return 0;
+
 }
 
 /* String utilities */
@@ -312,13 +426,27 @@ static int OSC_padString(char *dest, char *str) {
         dest[i] = str[i];
     }
     
-    dest[i] = '\0';
-    i++;
+    return OSC_WritePadding(dest, i);
+}
+
+static int OSC_padStringWithAnExtraStupidComma(char *dest, char *str) {
+    int i;
     
-    for (; (i % STRING_ALIGN_PAD) != 0; i++) {
-        dest[i] = '\0';
+    dest[0] = ',';
+    for (i = 0; str[i] != '\0'; i++) {
+        dest[i+1] = str[i];
     }
-    
-    return i;
+
+    return OSC_WritePadding(dest, i+1);
 }
  
+static int OSC_WritePadding(char *dest, int i) {
+    dest[i] = '\0';
+    i++;
+
+    for (; (i % STRING_ALIGN_PAD) != 0; i++) {
+	dest[i] = '\0';
+    }
+
+    return i;
+}

@@ -117,6 +117,8 @@ static void catch_sigint();
 static int Synthmessage(char *m, int n, void *clientdesc, int clientdesclength, int fd) ;
 void ParseOSCPacket(char *buf, int n, ClientAddr returnAddr);
 static void Smessage(char *address, void *v, int n, ClientAddr returnAddr);
+static void PrintTypeTaggedArgs(void *v, int n);
+static void PrintHeuristicallyTypeGuessedArgs(void *v, int n, int skipComma);
 char *DataAfterAlignedString(char *string, char *boundary) ;
 Boolean IsNiceString(char *string, char *boundary) ;
 void complain(char *s, ...);
@@ -307,6 +309,8 @@ void ParseOSCPacket(char *buf, int n, ClientAddr returnAddr) {
 	/* Print the time tag */
 	printf("[ %lx%08lx\n", ntohl(*((unsigned long *)(buf+8))),
 	       ntohl(*((unsigned long *)(buf+12))));
+	/* Note: if we wanted to actually use the time tag as a little-endian
+	   64-bit int, we'd have to word-swap the two 32-bit halves of it */
 
 	i = 16; /* Skip "#group\0" and time tag */
 	while(i<n) {
@@ -347,15 +351,100 @@ void ParseOSCPacket(char *buf, int n, ClientAddr returnAddr) {
 #define SMALLEST_POSITIVE_FLOAT 0.000001f
 
 static void Smessage(char *address, void *v, int n, ClientAddr returnAddr) {
+    char *chars = v;
+
+    printf("%s ", address);
+
+    if (n != 0) {
+	if (chars[0] == ',') {
+	    if (chars[1] != ',') {
+		/* This message begins with a type-tag string */
+		PrintTypeTaggedArgs(v, n);
+	    } else {
+		/* Double comma means an escaped real comma, not a type string */
+		PrintHeuristicallyTypeGuessedArgs(v, n, 1);
+	    }
+	} else {
+	    PrintHeuristicallyTypeGuessedArgs(v, n, 0);
+	}
+    }
+
+    printf("\n");
+    fflush(stdout);	/* Added for Sami 5/21/98 */
+}
+
+static void PrintTypeTaggedArgs(void *v, int n) { 
+    char *typeTags, *thisType;
+    char *p;
+
+    typeTags = v;
+
+    if (!IsNiceString(typeTags, typeTags+n)) {
+	/* No null-termination, so maybe it wasn't a type tag
+	   string after all */
+	PrintHeuristicallyTypeGuessedArgs(v, n, 0);
+	return;
+    }
+
+    p = DataAfterAlignedString(typeTags, typeTags+n);
+
+
+    for (thisType = typeTags + 1; *thisType != 0; ++thisType) {
+	switch (*thisType) {
+	    case 'i': case 'r': case 'm': case 'c':
+	    printf("%d ", ntohl(*((int *) p)));
+	    p += 4;
+	    break;
+
+	    case 'f': {
+		int i = ntohl(*((int *) p));
+		float *floatp = ((float *) (&i));
+		printf("%f ", *floatp);
+		p += 4;
+	    }
+	    break;
+
+	    case 'h': case 't':
+	    printf("[A 64-bit int] ");
+	    p += 8;
+	    break;
+
+	    case 'd':
+	    printf("[A 64-bit float] ");
+	    p += 8;
+	    break;
+
+	    case 's': case 'S':
+	    if (!IsNiceString(p, typeTags+n)) {
+		printf("Type tag said this arg is a string but it's not!\n");
+		return;
+	    } else {
+		printf("\"%s\" ", p);
+		p = DataAfterAlignedString(p, typeTags+n);
+	    }
+	    break;
+
+	    case 'T': printf("[True] "); break;
+	    case 'F': printf("[False] "); break;
+	    case 'N': printf("[Nil]"); break;
+	    case 'I': printf("[Infinitum]"); break;
+
+	    default:
+	    printf("[Unrecognized type tag %c]", *thisType);
+	    return;
+	}
+    }
+}
+
+static void PrintHeuristicallyTypeGuessedArgs(void *v, int n, int skipComma) {
     int i, thisi;
     float thisf;
     int *ints;
     char *chars;
     char *string, *nextString;
 	
-    printf("%s ", address);
 
-    /* Go through the arguments a word at a time */
+    /* Go through the arguments 32 bits at a time */
     ints = v;
     chars = v;
 
@@ -374,15 +463,13 @@ static void Smessage(char *address, void *v, int n, ClientAddr returnAddr) {
 	    i++;
 	} else if (IsNiceString(string, chars+n)) {
 	    nextString = DataAfterAlignedString(string, chars+n);
-	    printf("\"%s\" ", string);
+	    printf("\"%s\" ", (i == 0 && skipComma) ? string +1 : string);
 	    i += (nextString-string) / 4;
 	} else {
 	    printf("0x%x ", ints[i]);
 	    i++;
 	}
     }
-    printf("\n");
-    fflush(stdout);	/* Added for Sami 5/21/98 */
 }
 
 

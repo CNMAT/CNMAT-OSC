@@ -32,6 +32,7 @@ University of California, Berkeley.
    Derived from SynthControl.h
    Author: Matt Wright
    Version 0.1: 6/13/97
+   Version 0.2: 7/21/2000: Support for type-tagged messages
 
 
    General notes:
@@ -83,14 +84,19 @@ typedef struct OSCbuf_struct {
     char *buffer;            /* The buffer to hold the OSC packet */
     int size;                /* Size of the buffer */
     char *bufptr;            /* Current position as we fill the buffer */
-    int state;		     /* State of half-constructed message */
+    int state;		     /* State of partially-constructed message */
     int4byte *thisMsgSize;   /* Pointer to count field before 
 			        currently-being-written message */
     int4byte *prevCounts[MAX_BUNDLE_NESTING];
 			     /* Pointers to count field before each currently
 			        open bundle */
     int bundleDepth;	     /* How many sub-sub-bundles are we in now? */
+    char *typeStringPtr;    /* This pointer advances through the type
+			       tag string as you add arguments. */
+    int gettingFirstUntypedArg;	/* nonzero if this message doesn't have
+				   a type tag and we're waiting for the 1st arg */
 } OSCbuf;
+
 
 
 /* Initialize the given OSCbuf.  The user of this module must pass in the
@@ -141,6 +147,10 @@ int OSC_packetSize(OSCbuf *buf);
 	- Call OSC_writeAddress() with the name of your message.  (In
 	  addition to writing your message name into the buffer, this
 	  procedure will also leave space for the size count of this message.)
+
+        - Alternately, call OSC_writeAddressAndTypes() with the name of
+          your message and with a type string listing the types of all the
+          arguments you will be putting in this message.
 	
 	- Now write each of the arguments into the buffer, by calling one of:
 	    OSC_writeFloatArg()
@@ -157,6 +167,7 @@ int OSC_closeBundle(OSCbuf *buf);
 int OSC_closeAllBundles(OSCbuf *buf);
 
 int OSC_writeAddress(OSCbuf *buf, char *name);
+int OSC_writeAddressAndTypes(OSCbuf *buf, char *name, char *types);
 int OSC_writeFloatArg(OSCbuf *buf, float arg);
 int OSC_writeFloatArgs(OSCbuf *buf, int numFloats, float *args);
 int OSC_writeIntArg(OSCbuf *buf, int4byte arg);

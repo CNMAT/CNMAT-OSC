@@ -35,6 +35,8 @@ University of California, Berkeley.
     line arguments or standard input.
 
     Version 0.1: "play" feature
+    Version 0.2: Message type tags.
+
 */
 
 #define VERSION "http://cnmat.berkeley.edu/OpenSoundControl/sendOSC-0.1.html"
@@ -83,6 +85,9 @@ void complain(char *s, ...);
 */
 static int exitStatus = 0;  
 
+
+static int useTypeTags = 1;
+
 main(int argc, char *argv[]) {
     int portnumber;
     char *hostname = 0;
@@ -92,9 +97,13 @@ main(int argc, char *argv[]) {
     argv++;
 
     if (argc == 0) {
-	complain("usage: %s [-r] [-h target_host_name] port_number [message...]\n",
-		 argv[-1]);
-	exit(4);
+	goto usageerror;
+    }
+
+    if (argc >= 1 && (strncmp(*argv, "-notypetags", 2) == 0)) {
+	useTypeTags = 0;
+        argv++;
+	argc--;
     }
 
     if (argc >= 2 && (strncmp(*argv, "-r", 2) == 0)) {
@@ -123,15 +132,25 @@ main(int argc, char *argv[]) {
     }
 
     if (argc > 0) {
+	printf("host %s, port %d, %s\n", hostname, portnumber,
+	       useTypeTags ? "use type tags" : "don't use type tags");
         CommandLineMode(argc, argv, htmsocket);
     } else {
 	printf("sendOSC version " VERSION "\n");
 	printf("by Matt Wright. Copyright (c) 1996, 1997 Regents of the University of California.\n");
-	printf("host %s, port %d\n", hostname, portnumber);
+	printf("host %s, port %d, %s\n", hostname, portnumber,
+	       useTypeTags ? "use type tags" : "don't use type tags");
         InteractiveMode(htmsocket);
     }
     CloseHTMSocket(htmsocket);
     exit(exitStatus);
+
+
+    usageerror:
+	complain("usage: %s [-notypetags] [-r] [-h target_host_name] port_number [message...]\n",
+		 argv[-1]);
+	exit(4);
+
 }
 
 
@@ -147,6 +166,13 @@ void CommandLineMode(int argc, char *argv[], void *htmsocket) {
     OSCbuf buf[1];
 
     OSC_initBuffer(buf, SC_BUFFER_SIZE, bufferForOSCbuf);
+
+    if (argc > 1) {
+	if (OSC_openBundle(buf, OSCTT_Immediately())) {
+	    complain("Problem opening bundle: %s\n", OSC_errorMessage);
+	    return;
+	}
+    }
 
     for (i = 0; i < argc; i++) {
         messageName = strtok(argv[i], ",");
@@ -167,6 +193,13 @@ void CommandLineMode(int argc, char *argv[], void *htmsocket) {
         numArgs = j;
 
         WriteMessage(buf, messageName, numArgs, args);
+    }
+
+    if (argc > 1) {
+	if (OSC_closeBundle(buf)) {
+	    complain("Problem closing bundle: %s\n", OSC_errorMessage);
+	    return;
+	}
     }
 
     SendBuffer(htmsocket, buf);
@@ -271,6 +304,18 @@ OSCTimeTag ParseTimeTag(char *s) {
 	    complain("warning: couldn't parse time tag %s\n", s);
 	    return OSCTT_Immediately();
 	}
+#ifndef	HAS8BYTEINT
+	if (ntohl(1) != 1) {
+	    /* tt is a struct of seconds and fractional part,
+	       and this machine is little-endian, so sscanf
+	       wrote each half of the time tag in the wrong half
+	       of the struct. */
+	    uint32 temp;
+	    temp = tt.seconds;
+	    tt.seconds = tt.fraction ;
+	    tt.fraction = temp;
+	}
+#endif
 	return tt;
     }
 
@@ -397,7 +442,9 @@ typedArg ParseToken(char *token) {
 int WriteMessage(OSCbuf *buf, char *messageName, int numArgs, typedArg *args) {
     int j, returnVal;
 
-#ifdef TEST
+    returnVal = 0;
+
+#ifdef DEBUG
     printf("WriteMessage: %s ", messageName);
 
      for (j = 0; j < numArgs; j++) {
@@ -420,9 +467,46 @@ int WriteMessage(OSCbuf *buf, char *messageName, int numArgs, typedArg *args) {
         }
     }
     printf("\n");
-#else /* not TEST */
+#endif
 
-    OSC_writeAddress(buf, messageName);
+    if (!useTypeTags) {
+	returnVal = OSC_writeAddress(buf, messageName);
+	if (returnVal) {
+	    complain("Problem writing address: %s\n", OSC_errorMessage);
+	}
+    } else {
+	/* First figure out the type tags */
+	char typeTags[MAX_ARGS+2];
+	int i;
+
+	typeTags[0] = ',';
+
+	for (i = 0; i < numArgs; ++i) {
+	    switch (args[i].type) {
+		case INT:
+		typeTags[i+1] = 'i';
+		break;
+
+		case FLOAT:
+		typeTags[i+1] = 'f';
+		break;
+
+		case STRING:
+		typeTags[i+1] = 's';
+		break;
+
+		default:
+		fatal_error("Unrecognized arg type");
+		exit(5);
+	    }
+	}
+	typeTags[i+1] = '\0';
+	    
+	returnVal = OSC_writeAddressAndTypes(buf, messageName, typeTags);
+	if (returnVal) {
+	    complain("Problem writing address: %s\n", OSC_errorMessage);
+	}
+    }
 
      for (j = 0; j < numArgs; j++) {
         switch (args[j].type) {
@@ -451,7 +535,6 @@ int WriteMessage(OSCbuf *buf, char *messageName, int numArgs, typedArg *args) {
     }
 
     return returnVal;
-#endif /* TEST */
 }
 
 void SendBuffer(void *htmsocket, OSCbuf *buf) {
