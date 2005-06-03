@@ -427,6 +427,7 @@ static int strlen(char *s) {
 }
 
 #define STRING_ALIGN_PAD 4
+
 int OSC_effectiveStringLength(char *string) {
     int len = strlen(string) + 1;  /* We need space for the null char. */
     
@@ -467,4 +468,17 @@ static int OSC_WritePadding(char *dest, int i) {
     }
 
     return i;
+}
+
+
+/* Blob utility */
+
+int OSC_effectiveBlobLength(int blobDataSize) {
+    int len = 4 + blobDataSize;  /* int32 size count. */
+    
+    /* Round up len to next multiple of STRING_ALIGN_PAD to account for alignment padding */
+    if ((len % STRING_ALIGN_PAD) != 0) {
+        len += STRING_ALIGN_PAD - (len % STRING_ALIGN_PAD);
+    }
+    return len;
 }

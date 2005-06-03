@@ -178,3 +178,10 @@ extern char *OSC_errorMessage;
    string?  The length of the string, plus the null char, plus any padding
    needed for 4-byte alignment. */ 
 int OSC_effectiveStringLength(char *string);
+
+/* How many bytes will be needed in the OSC format to hold the given-length blob?
+   The length of a the 4-byte size count, plus the number of bytes in the blob, 
+   plus 0-3 null bytes needed for 4-byte alignment. */ 
+int OSC_effectiveBlobLength(int blobDataSize);
+
+

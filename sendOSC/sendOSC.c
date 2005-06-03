@@ -57,11 +57,15 @@ compiling:
 
 
 typedef struct {
-    enum {INT, FLOAT, STRING} type;
+    enum {INT, FLOAT, STRING, BLOB} type;
     union {
         int i;
         float f;
         char *s;
+      struct {
+	int size;
+	void *data;
+      } b;
     } datum;
 } typedArg;
 
@@ -408,11 +412,62 @@ void ParseInteractiveLine(OSCbuf *buf, char *mesg) {
     }
 }
 
+#define MAX_BLOB 1000
+char singleGlobalBlobContents[MAX_BLOB];
+
 typedArg ParseToken(char *token) {
+  /* "Token" isn't such a good name for this procedure now
+     that it handles blobs... */
+
     char *p = token;
     typedArg returnVal;
 
-    /* It might be an int, a float, or a string */
+    /* It might be an int, a float, a blob, or a string */
+
+    if (*p == '{') {
+      long l;
+      int i;
+      char *next, *curr;
+
+      curr = p+1;
+      printf("*** blob string: \"%s\"\n", curr);
+
+
+      for (i = 0; ; ++i) {
+	while (isspace(*curr)) curr++;
+	
+	if (*curr == '}') break;
+
+	printf("*curr: \"%c\"\n", *curr);
+	if (i == MAX_BLOB) {
+	  fatal_error("Exceeded maximum blob size.\n");
+	}
+	if (*curr == '\n' || *curr == '\0') {
+	  fatal_error("Unterminated blob\n");
+	}
+
+	next = 0;
+	printf("before: curr %p, next %p\n", curr, next);
+	l = strtol(curr, &next, 0);
+	printf("after: curr %p, next %p, l %d\n", curr, next, l);	
+	if (curr == next) {
+	  fatal_error("Ungerminated blob\n");
+	}
+
+	curr = next;
+
+	printf("end: curr %p, next %p, *curr \"%c\"\n", curr, next, *curr);
+	singleGlobalBlobContents[i] = l;
+      }	
+      
+      returnVal.type = BLOB;
+      returnVal.datum.b.size = i;
+      returnVal.datum.b.data = singleGlobalBlobContents;
+
+
+      return returnVal;
+    }
+
 
     if (*p == '-') p++;
 

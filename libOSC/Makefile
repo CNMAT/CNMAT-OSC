@@ -7,7 +7,7 @@ all:	${LIBOBJS}
 
 .c.a:
 	${CC} -c ${CFLAGS} $<
-	${AR} ${ARFLAGS} $@ $*.o
+	${AR} ${ARFLAGS} -s $@ $*.o
 	rm -f $*.o
 
 test_OSC: test_OSC.o ${LIB}
