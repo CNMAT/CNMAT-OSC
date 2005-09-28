@@ -27,6 +27,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   Version 2.2: Calls htonl in the right places 20000620
   Version 2.3: Gets typed messages right.
   Version 2.4: 031215: (re)added ChangeOutermostTimestamp(), htonl() OSX kludge
+  Version 2.4.1: Took extra CheckTypeTag() out of OSC_writeAddressAndTypes(), since OSC_writeAddress does it.
   
  */
 
@@ -301,8 +302,6 @@ int OSC_writeAddress(OSCbuf *buf, char *name) {
 int OSC_writeAddressAndTypes(OSCbuf *buf, char *name, char *types) {
     int result;
     int4byte paddedLength;
-
-    if (CheckTypeTag(buf, '\0')) return 9;
 
     result = OSC_writeAddress(buf, name);
 
