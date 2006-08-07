@@ -46,16 +46,14 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 #include "OSC-client.h"
 
-#ifdef TARGET_API_MAC_CARBON
-/* KLUDGE for OSX: */
+#if defined(TARGET_API_MAC_CARBON) && defined(__MWERKS__)
+/* KLUDGE for Codewarrior on OSX: */
 #define htonl(x) (x)
 #endif 
 
 char *OSC_errorMessage;
 
-#ifdef DONT_HAVE_STRING_LIBRARY
-static int strlen(char *s);
-#endif
+static int my_strlen(char *s);
 static int OSC_padString(char *dest, char *str);
 static int OSC_padStringWithAnExtraStupidComma(char *dest, char *str);
 static int OSC_WritePadding(char *dest, int i);
@@ -419,18 +417,20 @@ int OSC_writeStringArg(OSCbuf *buf, char *arg) {
 }
 
 /* String utilities */
-#ifdef DONT_HAVE_STRING_LIBRARY
-static int strlen(char *s) {
+/* We redefine strlen() to avoid the trouble of linking in the string library, or 
+   (e.g., building Xcode Max externals) to avoid the trouble of *not* linking in
+   the string library.  Feel free to get rid of this and have OSC_effectiveStringLength()
+   call the "real" strlen on your system. */
+static int my_strlen(char *s) {
     int i;
     for (i=0; s[i] != '\0'; i++) /* Do nothing */ ;
     return i;
 }
-#endif
 
 #define STRING_ALIGN_PAD 4
 
 int OSC_effectiveStringLength(char *string) {
-    int len = strlen(string) + 1;  /* We need space for the null char. */
+    int len = my_strlen(string) + 1;  /* We need space for the null char. */
     
     /* Round up len to next multiple of STRING_ALIGN_PAD to account for alignment padding */
     if ((len % STRING_ALIGN_PAD) != 0) {
