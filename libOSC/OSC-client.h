@@ -143,14 +143,15 @@ int ChangeOutermostTimestamp(OSCbuf *buf, OSCTimeTag tt);
 
     - For each message you want to send:
 
-	- Call OSC_writeAddress() with the name of your message.  (In
-	  addition to writing your message name into the buffer, this
-	  procedure will also leave space for the size count of this message.)
-
-        - Alternately, call OSC_writeAddressAndTypes() with the name of
-          your message and with a type string listing the types of all the
-          arguments you will be putting in this message.
+        - Call OSC_writeAddressAndTypes() with the name of your
+          message and with a type string listing the types of all the
+          arguments you will be putting in this message.  (In addition
+          to writing your message name into the buffer, this procedure
+          will also leave space for the size count of this message.)
 	
+	- Alternately, if for some horrible reason you want to send a message
+	  without type tags, call OSC_writeAddress() with the name of your message.
+
 	- Now write each of the arguments into the buffer, by calling one of:
 	    OSC_writeFloatArg()
 	    OSC_writeFloatArgs()

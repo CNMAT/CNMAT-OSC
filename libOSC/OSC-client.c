@@ -403,7 +403,7 @@ int OSC_writeStringArg(OSCbuf *buf, char *arg) {
 
     len = OSC_effectiveStringLength(arg);
 
-    if (buf->gettingFirstUntypedArg && arg[0] == ',') {
+    if (buf->gettingFirstUntypedArg && arg[0] == ',' && buf->typeStringPtr != 0) {
 	/* This un-type-tagged message starts with a string
 	   that starts with a comma, so we have to escape it
 	   (with a double comma) so it won't look like a type
