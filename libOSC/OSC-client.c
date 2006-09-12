@@ -47,9 +47,16 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include "OSC-client.h"
 
 #if defined(TARGET_API_MAC_CARBON) && defined(__MWERKS__)
-/* KLUDGE for Codewarrior on OSX: */
+/* KLUDGE for Codewarrior on OSX/Carbon: */
 #define htonl(x) (x)
 #endif 
+
+#if defined(WIN_VERSION) && defined(WIN_EXT_VERSION) && defined(__GNUC__)
+#warning Congratulations on your good taste in choosing to compile \
+Windows Max/MSP externals with GCC!
+// Here's where to find htonl() in GCC/Cygwin/Windows
+#include <winsock2.h>
+#endif
 
 char *OSC_errorMessage;
 
