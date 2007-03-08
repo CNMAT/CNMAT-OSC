@@ -31,6 +31,9 @@ The OpenSound Control WWW page is
 
  Version 0.2 (9/11/98): cleaned up so no explicit type names in the .c file.
 
+ Note: this file does everything in host byte order.  OSC-client.c converts time tags
+ to network byte order (if necessary) when you add them to a packet.
+
 */
 
 #include "OSC-timetag.h"
@@ -145,14 +148,15 @@ OSCTimeTag OSCTT_BiggestPossibleTimeTag(void) {
 OSCTimeTag OSCTT_Immediately(void) {
     OSCTimeTag result;
     result.seconds = 0;
-    result.fraction = 1;
+    result.fraction = 1;  // What if host is little-endian?
     return result;
 }
 
 OSCTimeTag OSCTT_PlusSeconds(OSCTimeTag original, float secondsOffset) {
+	// This looks completely bogus!
     OSCTimeTag result;
     result.seconds = 0;
-    result.fraction = 1;
+    result.fraction = 1; // What if host is little-endian?
     return result;
 }
 

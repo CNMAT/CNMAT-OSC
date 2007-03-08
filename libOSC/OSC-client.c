@@ -28,7 +28,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   Version 2.3: Gets typed messages right.
   Version 2.4: 031215: (re)added ChangeOutermostTimestamp(), htonl() OSX kludge
   Version 2.4.1: Took extra CheckTypeTag() out of OSC_writeAddressAndTypes(), since OSC_writeAddress does it.
-  
+  Version 2.5: Byte swaps outgoing time tags consistently.
  */
 
 
@@ -65,6 +65,7 @@ static int OSC_padString(char *dest, char *str);
 static int OSC_padStringWithAnExtraStupidComma(char *dest, char *str);
 static int OSC_WritePadding(char *dest, int i);
 static int CheckTypeTag(OSCbuf *buf, char expectedType);
+static void ByteSwapTimeTag(OSCTimeTag *tt);
 
 void OSC_initBuffer(OSCbuf *buf, int size, char *byteArray) {
     buf->buffer = byteArray;
@@ -170,30 +171,13 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
 
     buf->bufptr += OSC_padString(buf->bufptr, "#bundle");
 
-
     *((OSCTimeTag *) buf->bufptr) = tt;
+	ByteSwapTimeTag((OSCTimeTag *)buf->bufptr);
+
     if (buf->state == EMPTY) {
-    	    buf->outerMostTimeStamp = (OSCTimeTag *) buf->bufptr;
+		buf->outerMostTimeStamp = (OSCTimeTag *) buf->bufptr;
     }
 
-
-    if (htonl(1) != 1) {
-		/* Byte swap the 8-byte integer time tag */
-		int4byte *intp = (int4byte *)buf->bufptr;
-		intp[0] = htonl(intp[0]);
-		intp[1] = htonl(intp[1]);
-
-#ifdef HAS8BYTEINT
-		{ /* tt is a 64-bit int so we have to swap the two 32-bit words. 
-	    	(Otherwise tt is a struct of two 32-bit words, and even though
-	    	 each word was wrong-endian, they were in the right order
-	    	 in the struct.) */
-	    	int4byte temp = intp[0];
-	    	intp[0] = intp[1];
-	    	intp[1] = temp;
-		}
-#endif
-    }
 
     buf->bufptr += sizeof(OSCTimeTag);
 
@@ -206,12 +190,34 @@ int OSC_openBundle(OSCbuf *buf, OSCTimeTag tt) {
 
 
 
+static void ByteSwapTimeTag(OSCTimeTag *tt) {
+	int4byte *intp = (int4byte *) tt;
+	// Given a pointer to an 8-byte time tag, byte-swap if necessary
+	if (htonl(1) != 1) {
+		/* Byte swap each 4-byte word */
+		intp[0] = htonl(intp[0]);
+		intp[1] = htonl(intp[1]);
+
+#ifdef HAS8BYTEINT
+		{ /* timetag was passed as a 64-bit int so we have to swap the two 32-bit words. 
+	    	(Otherwise tt is a struct of two 32-bit words, and even though
+	    	 each word was wrong-endian, they were in the right order
+	    	 in the struct.) */
+	    	int4byte temp = intp[0];
+	    	intp[0] = intp[1];
+	    	intp[1] = temp;
+		}
+#endif
+    }
+}
+
 int ChangeOutermostTimestamp(OSCbuf *buf, OSCTimeTag tt) {
 	if (buf->outerMostTimeStamp == 0) {
 		OSC_errorMessage = "No outermost timestamp to change.";
 		return 1;
 	} else {
 		*(buf->outerMostTimeStamp) = tt;
+		ByteSwapTimeTag(buf->outerMostTimeStamp);
 		return 0;
 	}
 }
@@ -348,7 +354,6 @@ static int CheckTypeTag(OSCbuf *buf, char expectedType) {
 
 int OSC_writeFloatArg(OSCbuf *buf, float arg) {
     int4byte *intp;
-    int result;
 
     CheckOverflow(buf, 4);
 
