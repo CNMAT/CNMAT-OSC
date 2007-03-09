@@ -43,6 +43,8 @@ The OSC webpage is http://cnmat.cnmat.berkeley.edu/OpenSoundControl
  
      1/13/03 Make it compile on OSX.
 
+     Version 0.4: 050606 Made it able to read from /dev/osc
+
 	compile:
 		cc -o dumpOSC dumpOSC.c
 
@@ -572,7 +574,8 @@ static char mbuf[MAXMESG];
 
 int main(int argc, char **argv) {
     int udp_port;		/* port to receive parameter updates from */
-		
+    int devosc = 0;
+
 #ifdef OSX
     struct sockaddr cl_addr;
     struct sockaddr ucl_addr;
@@ -596,6 +599,9 @@ int main(int argc, char **argv) {
 	} else if (strcmp(argv[i], "-silent") == 0 ||
 		   strcmp(argv[i], "-quiet") == 0) {
 	    Silent = TRUE;
+	} else if (strcmp(argv[i], "-devosc") == 0) {
+	    devosc = TRUE;
+	    udp_port = 12345;
 	} else if (udp_port != -1) {
 	    goto usageError;
 	} else {
@@ -612,17 +618,22 @@ int main(int argc, char **argv) {
 	    exit(1);
     }
 
-
-	n = recvfrom(0, mbuf, MAXMESG, 0, &cl_addr, &clilen);
-	if(n>0)
-	{
-		sockfd = 0;
-		udp_port = -1;
-		Synthmessage(mbuf, n, &cl_addr, clilen,sockfd) ;
-	}
-	else
-	{	sockfd=initudp(udp_port);
-		usockfd=unixinitudp(udp_port);
+	if (devosc) {
+	  sockfd = open("/dev/osc", O_RDONLY | O_NONBLOCK, 0);
+	  if (sockfd < 0) {
+	    perror("Couldn't open /dev/osc");
+	    exit(2);
+	  }
+	} else {
+	  n = recvfrom(0, mbuf, MAXMESG, 0, &cl_addr, &clilen);
+	  if(n>0) {
+	      sockfd = 0;
+	      udp_port = -1;
+	      Synthmessage(mbuf, n, &cl_addr, clilen,sockfd) ;
+	  } else {
+	    sockfd=initudp(udp_port);
+	    usockfd=unixinitudp(udp_port);
+	  }
 	}
 
     if (!Silent) {
