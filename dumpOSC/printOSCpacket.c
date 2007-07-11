@@ -19,8 +19,8 @@ typedef int Boolean;
 #endif
 
 
-
-static void Smessage(char *address, void *v, int n);
+void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth);
+static void PrintOSCMessage(char *address, void *v, int n, char *indent);
 static void PrintTypeTaggedArgs(void *v, int n);
 static void PrintHeuristicallyTypeGuessedArgs(void *v, int n, int skipComma);
 char *DataAfterAlignedString(char *string, char *boundary) ;
@@ -30,15 +30,32 @@ Boolean IsNiceString(char *string, char *boundary) ;
 char *error_string;
 
 void PrintOSCPacket(char *buf, int n) {
+  PrintOSCPacketRecursive(buf, n, 0);
+}
+
+
+#define MAX_DEPTH 10
+#define INDENTATION_AMOUNT 2
+
+void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth) {
     int size, messageLen, i;
     char *messageName;
     char *args;
+    char indentation[MAX_DEPTH*INDENTATION_AMOUNT +1];
 
     if ((n%4) != 0) {
 	COMPLAIN("OSC packet size (%d) not a multiple of 4 bytes: dropping",
 		 n);
 	return;
     }
+
+    if (bundleDepth > MAX_DEPTH) bundleDepth = MAX_DEPTH;
+
+    for (i=0; i<bundleDepth * INDENTATION_AMOUNT; ++i) {
+      indentation[i] = ' ';
+    }
+    indentation[i] = '\0';
+
 
     if ((n >= 8) && (strncmp(buf, "#bundle", 8) == 0)) {
 	/* This is a bundle message. */
@@ -49,7 +66,8 @@ void PrintOSCPacket(char *buf, int n) {
 	}
 
 	/* Print the time tag */
-	printf("[ %lx%08lx\n", ntohl(*((unsigned long *)(buf+8))),
+	printf("%s[ %lx%08lx\n", indentation,
+	       ntohl(*((unsigned long *)(buf+8))),
 	       ntohl(*((unsigned long *)(buf+12))));
 	/* Note: if we wanted to actually use the time tag as a little-endian
 	   64-bit int, we'd have to word-swap the two 32-bit halves of it */
@@ -68,13 +86,13 @@ void PrintOSCPacket(char *buf, int n) {
 	    }
 	    
 	    /* Recursively handle element of bundle */
-	    PrintOSCPacket(buf+i+4, size);
+	    PrintOSCPacketRecursive(buf+i+4, size, bundleDepth+1);
 	    i += 4 + size;
 	}
 	if (i != n) {
 	    COMPLAIN("This can't happen");
 	}
-	printf("]\n");
+	printf("%s]\n", indentation);
     } else {
 	/* This is not a bundle message */
 
@@ -86,17 +104,17 @@ void PrintOSCPacket(char *buf, int n) {
 	    return;
 	}
 	messageLen = args-messageName;	    
-	Smessage(messageName, (void *)args, n-messageLen);
+	PrintOSCMessage(messageName, (void *)args, n-messageLen, indentation);
     }
 }
 
 
 #define SMALLEST_POSITIVE_FLOAT 0.000001f
 
-static void Smessage(char *address, void *v, int n) {
+static void PrintOSCMessage(char *address, void *v, int n, char *indentation) {
     char *chars = v;
 
-    printf("%s ", address);
+    printf("%s%s ", indentation, address);
 
     if (n != 0) {
 	if (chars[0] == ',') {
