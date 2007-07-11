@@ -2,12 +2,11 @@ LIBOSCDIR = ../libOSC
 LIBOSC = ${LIBOSCDIR}/libOSC.a
 CFLAGS=  -O2 -I$(LIBOSCDIR)
 
-DUMPOBJS=dumpOSC.o
-
+DUMPOBJS=dumpOSC.o printOSCpacket.o
 
 dumpOSC: ${DUMPOBJS}
 	${CC} -o $@ ${DUMPOBJS}
-	
+
 dumpUDP: dumpUDP.o
 	${CC} -o dumpUDP dumpUDP.o
 
