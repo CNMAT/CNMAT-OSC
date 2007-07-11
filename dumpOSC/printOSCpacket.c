@@ -10,22 +10,12 @@ extern void complain(char *s, ...);
 #include <stdio.h>
 #include "printOSCpacket.h"
 
-typedef int Boolean;
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-
 void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth);
 static void PrintOSCMessage(char *address, void *v, int n, char *indent);
 static void PrintTypeTaggedArgs(void *v, int n);
 static void PrintHeuristicallyTypeGuessedArgs(void *v, int n, int skipComma);
 char *DataAfterAlignedString(char *string, char *boundary) ;
-Boolean IsNiceString(char *string, char *boundary) ;
-
+int IsNiceString(char *string, char *boundary) ;
 
 char *error_string;
 
@@ -66,7 +56,7 @@ void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth) {
 	}
 
 	/* Print the time tag */
-	printf("%s[ %lx%08lx\n", indentation,
+	PRINTF("%s[ %lx%08lx\n", indentation,
 	       ntohl(*((unsigned long *)(buf+8))),
 	       ntohl(*((unsigned long *)(buf+12))));
 	/* Note: if we wanted to actually use the time tag as a little-endian
@@ -92,7 +82,7 @@ void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth) {
 	if (i != n) {
 	    COMPLAIN("This can't happen");
 	}
-	printf("%s]\n", indentation);
+	PRINTF("%s]\n", indentation);
     } else {
 	/* This is not a bundle message */
 
@@ -114,7 +104,7 @@ void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth) {
 static void PrintOSCMessage(char *address, void *v, int n, char *indentation) {
     char *chars = v;
 
-    printf("%s%s ", indentation, address);
+    PRINTF("%s%s ", indentation, address);
 
     if (n != 0) {
 	if (chars[0] == ',') {
@@ -130,7 +120,7 @@ static void PrintOSCMessage(char *address, void *v, int n, char *indentation) {
 	}
     }
 
-    printf("\n");
+    PRINTF("\n");
     fflush(stdout);	/* Added for Sami 5/21/98 */
 }
 
@@ -153,47 +143,47 @@ static void PrintTypeTaggedArgs(void *v, int n) {
     for (thisType = typeTags + 1; *thisType != 0; ++thisType) {
 	switch (*thisType) {
 	    case 'i': case 'r': case 'm': case 'c':
-	    printf("%d ", ntohl(*((int *) p)));
+	    PRINTF("%d ", ntohl(*((int *) p)));
 	    p += 4;
 	    break;
 
 	    case 'f': {
 		int i = ntohl(*((int *) p));
 		float *floatp = ((float *) (&i));
-		printf("%f ", *floatp);
+		PRINTF("%f ", *floatp);
 		p += 4;
 	    }
 	    break;
 
 	    case 'h': case 't':
-	    printf("[A 64-bit int] ");
+	    PRINTF("[A 64-bit int] ");
 	    /* Syntaxes for printing this include %64l and %ll... */
 
 	    p += 8;
 	    break;
 
 	    case 'd':
-	    printf("[A 64-bit float] ");
+	    PRINTF("[A 64-bit float] ");
 	    p += 8;
 	    break;
 
 	    case 's': case 'S':
 	    if (!IsNiceString(p, typeTags+n)) {
-		printf("Type tag said this arg is a string but it's not!\n");
+		PRINTF("Type tag said this arg is a string but it's not!\n");
 		return;
 	    } else {
-		printf("\"%s\" ", p);
+		PRINTF("\"%s\" ", p);
 		p = DataAfterAlignedString(p, typeTags+n);
 	    }
 	    break;
 
-	    case 'T': printf("[True] "); break;
-	    case 'F': printf("[False] "); break;
-	    case 'N': printf("[Nil]"); break;
-	    case 'I': printf("[Infinitum]"); break;
+	    case 'T': PRINTF("[True] "); break;
+	    case 'F': PRINTF("[False] "); break;
+	    case 'N': PRINTF("[Nil]"); break;
+	    case 'I': PRINTF("[Infinitum]"); break;
 
 	    default:
-	    printf("[Unrecognized type tag %c]", *thisType);
+	    PRINTF("[Unrecognized type tag %c]", *thisType);
 	    return;
 	}
     }
@@ -218,18 +208,18 @@ static void PrintHeuristicallyTypeGuessedArgs(void *v, int n, int skipComma) {
 	thisf = *(((float *) (&thisi)));
 
 	if  (thisi >= -1000 && thisi <= 1000000) {
-	    printf("%d ", thisi);
+	    PRINTF("%d ", thisi);
 	    i++;
 	} else if (thisf >= -1000.f && thisf <= 1000000.f &&
 		   (thisf <=0.0f || thisf >= SMALLEST_POSITIVE_FLOAT)) {
-	    printf("%f ",  thisf);
+	    PRINTF("%f ",  thisf);
 	    i++;
 	} else if (IsNiceString(string, chars+n)) {
 	    nextString = DataAfterAlignedString(string, chars+n);
-	    printf("\"%s\" ", (i == 0 && skipComma) ? string +1 : string);
+	    PRINTF("\"%s\" ", (i == 0 && skipComma) ? string +1 : string);
 	    i += (nextString-string) / 4;
 	} else {
-	    printf("0x%x ", ints[i]);
+	    PRINTF("0x%x ", ints[i]);
 	    i++;
 	}
     }
@@ -281,7 +271,8 @@ char *DataAfterAlignedString(char *string, char *boundary)
     return string+i;
 }
 
-Boolean IsNiceString(char *string, char *boundary) 
+
+int IsNiceString(char *string, char *boundary) 
 {
     /* Arguments same as DataAfterAlignedString().  Is the given "string"
        really a string?  I.e., is it a sequence of isprint() characters
@@ -295,8 +286,8 @@ Boolean IsNiceString(char *string, char *boundary)
     }
 
     for (i = 0; string[i] != '\0'; i++) {
-	if (!isprint(string[i])) return FALSE;
-	if (string + i >= boundary) return FALSE;
+	if (!isprint(string[i])) return 0;
+	if (string + i >= boundary) return 0;
     }
 
     /* If we made it this far, it's a null-terminated sequence of printing characters 
@@ -305,10 +296,10 @@ Boolean IsNiceString(char *string, char *boundary)
     /* Now string[i] is the first null character */
     i++;
     for (; (i % STRING_ALIGN_PAD) != 0; i++) {
-	if (string[i] != '\0') return FALSE;
+	if (string[i] != '\0') return 0;
     }
 
-    return TRUE;
+    return 1;
 }
 
 
