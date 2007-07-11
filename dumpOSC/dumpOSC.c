@@ -308,7 +308,7 @@ void ParseOSCPacket(char *buf, int n, ClientAddr returnAddr) {
 
 
     if ((n%4) != 0) {
-	complain("SynthControl packet size (%d) not a multiple of 4 bytes: dropping",
+	complain("OSC packet size (%d) not a multiple of 4 bytes: dropping",
 		 n);
 	return;
     }
@@ -327,7 +327,7 @@ void ParseOSCPacket(char *buf, int n, ClientAddr returnAddr) {
 	/* Note: if we wanted to actually use the time tag as a little-endian
 	   64-bit int, we'd have to word-swap the two 32-bit halves of it */
 
-	i = 16; /* Skip "#group\0" and time tag */
+	i = 16; /* Skip "#bundle\0" and time tag */
 	while(i<n) {
 	    size = ntohl(*((int *) (buf + i)));
 	    if ((size % 4) != 0) {
@@ -421,6 +421,8 @@ static void PrintTypeTaggedArgs(void *v, int n) {
 
 	    case 'h': case 't':
 	    printf("[A 64-bit int] ");
+	    /* Syntaxes for printing this include %64l and %ll... */
+
 	    p += 8;
 	    break;
 
