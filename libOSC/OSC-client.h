@@ -171,6 +171,7 @@ int OSC_writeAddressAndTypes(OSCbuf *buf, char *name, char *types);
 int OSC_writeFloatArg(OSCbuf *buf, float arg);
 int OSC_writeFloatArgs(OSCbuf *buf, int numFloats, float *args);
 int OSC_writeIntArg(OSCbuf *buf, int4byte arg);
+int OSC_writeTimeTagArg(OSCbuf *buf, int4byte sec, int4byte frac_sec);
 int OSC_writeStringArg(OSCbuf *buf, char *arg);
 
 extern char *OSC_errorMessage;

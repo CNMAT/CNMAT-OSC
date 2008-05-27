@@ -391,14 +391,28 @@ int OSC_writeFloatArgs(OSCbuf *buf, int numFloats, float *args) {
 }
 
 int OSC_writeIntArg(OSCbuf *buf, int4byte arg) {
-    CheckOverflow(buf, 4);
-    if (CheckTypeTag(buf, 'i')) return 9;
+  CheckOverflow(buf, 4);
+  if (CheckTypeTag(buf, 'i')) return 9;
+  
+  *((int4byte *) buf->bufptr) = htonl(arg);
+  buf->bufptr += 4;
+  
+  buf->gettingFirstUntypedArg = 0;
+  return 0;
+}
 
-    *((int4byte *) buf->bufptr) = htonl(arg);
-    buf->bufptr += 4;
-
-    buf->gettingFirstUntypedArg = 0;
-    return 0;
+int OSC_writeTimeTagArg(OSCbuf *buf, int4byte sec, int4byte frac_sec) {
+  CheckOverflow(buf, 8);
+  if (CheckTypeTag(buf, 't')) return 9;
+  
+  *((int4byte *) buf->bufptr) = htonl(sec);
+  buf->bufptr += 4;
+  
+  *((int4byte *) buf->bufptr) = htonl(frac_sec);
+  buf->bufptr += 4;
+  
+  buf->gettingFirstUntypedArg = 0;
+  return 0;
 }
 
 int OSC_writeStringArg(OSCbuf *buf, char *arg) {
