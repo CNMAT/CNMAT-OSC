@@ -1,8 +1,5 @@
-#CC = cc
-#CFLAGS = -g -n32
-
-CC = x86_64-w64-mingw32-gcc
-CFLAGS =
+CC = cc
+CFLAGS = -g -n32 
 
 OBJS = OSC-callbacklist.o OSC-receive.o \
 	OSC-timetag.o OSC-system-dependent.o OSC-string-help.o \
@@ -28,3 +25,4 @@ tags: *.[c]
 
 clean:
 	rm -f test test-pq *.o core
+
