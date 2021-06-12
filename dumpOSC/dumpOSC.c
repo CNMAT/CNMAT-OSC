@@ -358,7 +358,7 @@ int main(int argc, char **argv) {
 	    exit(2);
 	  }
 	} else {
-	  n = recvfrom(0, mbuf, MAXMESG, 0, &cl_addr, &clilen);
+	  n = recvfrom(0, mbuf, MAXMESG, 0, (struct sockaddr *)&cl_addr, (socklen_t*)&clilen);
 	  if(n>0) {
 	      sockfd = 0;
 	      udp_port = -1;
@@ -434,7 +434,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		        if(FD_ISSET(sockfd, &read_fds))
 			{
 				clilen = maxclilen;
-				while( (n = recvfrom(sockfd, mbuf, MAXMESG, 0, &cl_addr, &clilen)) >0) 
+				while( (n = recvfrom(sockfd, mbuf, MAXMESG, 0, (struct sockaddr*)&cl_addr, (socklen_t*)&clilen)) >0) 
 				{
 				  int r;
 				  /* printf("received UDP packet of length %d\n",  n); */
@@ -448,7 +448,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		        if(FD_ISSET(usockfd, &read_fds))
 			{
 				uclilen = umaxclilen;
-				while( (n = recvfrom(usockfd, mbuf, MAXMESG, 0, &ucl_addr, &uclilen)) >0) 
+				while( (n = recvfrom(usockfd, mbuf, MAXMESG, 0, (struct sockaddr *)&ucl_addr, (socklen_t*)&uclilen)) >0) 
 				{
 				  int r;
 				  /* printf("received UNIX packet of length %d\n",  n); */

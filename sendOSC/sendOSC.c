@@ -305,7 +305,7 @@ OSCTimeTag ParseTimeTag(char *s) {
     if (isdigit(*p) || (*p >= 'a' && *p <='f') || (*p >= 'A' && *p <='F')) {
 	/* They specified the 8-byte tag in hex */
 	OSCTimeTag tt;
-	if (sscanf(p, "%llx", &tt) != 1) {
+	if (sscanf(p, "%llx", (uint64_t*)&tt) != 1) {
 	    complain("warning: couldn't parse time tag %s\n", s);
 	    return OSCTT_Immediately();
 	}
