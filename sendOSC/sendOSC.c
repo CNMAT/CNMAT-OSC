@@ -450,7 +450,7 @@ typedArg ParseToken(char *token) {
 	next = 0;
 	printf("before: curr %p, next %p\n", curr, next);
 	l = strtol(curr, &next, 0);
-	printf("after: curr %p, next %p, l %d\n", curr, next, l);	
+	printf("after: curr %p, next %p, l %ld\n", curr, next, l);	
 	if (curr == next) {
 	  fatal_error("Ungerminated blob\n");
 	}

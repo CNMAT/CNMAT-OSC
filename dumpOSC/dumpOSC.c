@@ -281,7 +281,7 @@ void PrintClientAddr(ClientAddr CA) {
     printf("  clilen %d, sockfd %d\n", CA->clilen, CA->sockfd);
     printf("  sin_family %d, sin_port %d\n", CA->cl_addr.sin_family,
 	   CA->cl_addr.sin_port);
-    printf("  address: (%x) %s\n", addr,  inet_ntoa(CA->cl_addr.sin_addr));
+    printf("  address: (%lx) %s\n", addr,  inet_ntoa(CA->cl_addr.sin_addr));
 
     printf("  sin_zero = \"%c%c%c%c%c%c%c%c\"\n", 
 	   CA->cl_addr.sin_zero[0],
