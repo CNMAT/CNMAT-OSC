@@ -8,6 +8,9 @@ extern void complain(char *s, ...);
 #endif
 
 #include <stdio.h>
+#include <string.h> // strncmp
+#include <ctype.h> // isprint
+
 #include "printOSCpacket.h"
 
 void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth);

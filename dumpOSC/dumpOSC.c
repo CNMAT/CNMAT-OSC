@@ -427,7 +427,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		        r = select(nfds, &read_fds, &write_fds, (fd_set *)0, 
 		                        (struct timeval *)0);
 		        if (r < 0)  /* select reported an error */
-			  return;
+			  return 1;
 		        {
 			    int j;
 			    
@@ -444,7 +444,7 @@ printf("polldev %d\n", polldevs[j].fd);
 				  /* printf("received UDP packet of length %d\n",  n); */
 				  r = Synthmessage(mbuf, n, &cl_addr, clilen, sockfd) ;
 
-				  if( sgi_HaveToQuit()) return;
+				  if( sgi_HaveToQuit()) return 2;
 				  if(r>0) goto back;
 				  clilen = maxclilen;
 				}
@@ -459,7 +459,7 @@ printf("polldev %d\n", polldevs[j].fd);
 
 				  r=Synthmessage(mbuf, n, &ucl_addr, uclilen,usockfd) ;
 
-				  if( sgi_HaveToQuit()) return;
+				  if( sgi_HaveToQuit()) return 3;
 				  if(r>0) goto back;
 				  uclilen = umaxclilen;
 				}

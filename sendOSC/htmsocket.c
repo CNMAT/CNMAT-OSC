@@ -61,6 +61,9 @@ The OSC webpage is http://cnmat.cnmat.berkeley.edu/OpenSoundControl
 
 #include <stdlib.h>
 
+#include <string.h> // strlen, strcpy
+#include <strings.h> // bzero
+
 #define UNIXDG_PATH "/tmp/htm"
 #define UNIXDG_TMP "/tmp/htm.XXXXXX"
 #include "htmsocket.h"                          

@@ -54,6 +54,7 @@ compiling:
 #include <stdlib.h>
 /* #include <bstring.h> */
 #include <string.h>
+#include <ctype.h> // isdigit, isspace
 
 
 typedef struct {
