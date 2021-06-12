@@ -93,7 +93,7 @@ static int exitStatus = 0;
 
 static int useTypeTags = 1;
 
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
     int portnumber;
     char *hostname = 0;
     void *htmsocket;
