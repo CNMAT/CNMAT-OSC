@@ -11,6 +11,7 @@ extern void complain(char *s, ...);
 #include <string.h> // strncmp
 #include <ctype.h> // isprint
 #include <stdint.h> // uint32_t
+#include <arpa/inet.h> // ntohl
 
 #include "printOSCpacket.h"
 
