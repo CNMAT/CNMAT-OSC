@@ -55,7 +55,7 @@ compiling:
 /* #include <bstring.h> */
 #include <string.h>
 #include <ctype.h> // isdigit, isspace
-
+#include <arpa/inet.h> // ntohl
 
 typedef struct {
     enum {INT, FLOAT, STRING, BLOB} type;
