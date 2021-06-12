@@ -400,11 +400,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		caught_sigint = 0;
 
 		/* Set signal handler */
-#ifdef OSX
 		signal(SIGINT, catch_sigint);
-#else
-   		sigset(SIGINT, catch_sigint);
-#endif
 	
 		while(!caught_sigint)
 		{
