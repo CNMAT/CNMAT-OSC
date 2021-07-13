@@ -1,0 +1,4 @@
+dumpOSC/dumpOSC
+sendOSC/sendOSC
+*.o
+*.a

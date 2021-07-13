@@ -8,6 +8,11 @@ extern void complain(char *s, ...);
 #endif
 
 #include <stdio.h>
+#include <string.h> // strncmp
+#include <ctype.h> // isprint
+#include <stdint.h> // uint32_t
+#include <arpa/inet.h> // ntohl
+
 #include "printOSCpacket.h"
 
 void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth);
@@ -56,9 +61,9 @@ void PrintOSCPacketRecursive(char *buf, int n, int bundleDepth) {
 	}
 
 	/* Print the time tag */
-	PRINTF("%s[ %lx%08lx\n", indentation,
-	       ntohl(*((unsigned long *)(buf+8))),
-	       ntohl(*((unsigned long *)(buf+12))));
+	PRINTF("%s[ %x%08x\n", indentation,
+	       ntohl(*((uint32_t*)(buf+8))),
+	       ntohl(*((uint32_t*)(buf+12))));
 	/* Note: if we wanted to actually use the time tag as a little-endian
 	   64-bit int, we'd have to word-swap the two 32-bit halves of it */
 

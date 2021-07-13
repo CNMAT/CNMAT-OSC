@@ -54,7 +54,8 @@ compiling:
 #include <stdlib.h>
 /* #include <bstring.h> */
 #include <string.h>
-
+#include <ctype.h> // isdigit, isspace
+#include <arpa/inet.h> // ntohl
 
 typedef struct {
     enum {INT, FLOAT, STRING, BLOB} type;
@@ -92,7 +93,7 @@ static int exitStatus = 0;
 
 static int useTypeTags = 1;
 
-main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
     int portnumber;
     char *hostname = 0;
     void *htmsocket;
@@ -304,7 +305,7 @@ OSCTimeTag ParseTimeTag(char *s) {
     if (isdigit(*p) || (*p >= 'a' && *p <='f') || (*p >= 'A' && *p <='F')) {
 	/* They specified the 8-byte tag in hex */
 	OSCTimeTag tt;
-	if (sscanf(p, "%llx", &tt) != 1) {
+	if (sscanf(p, "%llx", (uint64_t*)&tt) != 1) {
 	    complain("warning: couldn't parse time tag %s\n", s);
 	    return OSCTT_Immediately();
 	}
@@ -449,7 +450,7 @@ typedArg ParseToken(char *token) {
 	next = 0;
 	printf("before: curr %p, next %p\n", curr, next);
 	l = strtol(curr, &next, 0);
-	printf("after: curr %p, next %p, l %d\n", curr, next, l);	
+	printf("after: curr %p, next %p, l %ld\n", curr, next, l);	
 	if (curr == next) {
 	  fatal_error("Ungerminated blob\n");
 	}

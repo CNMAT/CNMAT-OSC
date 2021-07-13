@@ -58,6 +58,8 @@ Windows Max/MSP externals with GCC!
 #include <winsock2.h>
 #endif
 
+#include <arpa/inet.h> // htonl
+
 char *OSC_errorMessage;
 
 static int my_strlen(char *s);

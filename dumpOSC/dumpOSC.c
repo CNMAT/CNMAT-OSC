@@ -281,7 +281,7 @@ void PrintClientAddr(ClientAddr CA) {
     printf("  clilen %d, sockfd %d\n", CA->clilen, CA->sockfd);
     printf("  sin_family %d, sin_port %d\n", CA->cl_addr.sin_family,
 	   CA->cl_addr.sin_port);
-    printf("  address: (%x) %s\n", addr,  inet_ntoa(CA->cl_addr.sin_addr));
+    printf("  address: (%lx) %s\n", addr,  inet_ntoa(CA->cl_addr.sin_addr));
 
     printf("  sin_zero = \"%c%c%c%c%c%c%c%c\"\n", 
 	   CA->cl_addr.sin_zero[0],
@@ -358,7 +358,7 @@ int main(int argc, char **argv) {
 	    exit(2);
 	  }
 	} else {
-	  n = recvfrom(0, mbuf, MAXMESG, 0, &cl_addr, &clilen);
+	  n = recvfrom(0, mbuf, MAXMESG, 0, (struct sockaddr *)&cl_addr, (socklen_t*)&clilen);
 	  if(n>0) {
 	      sockfd = 0;
 	      udp_port = -1;
@@ -400,11 +400,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		caught_sigint = 0;
 
 		/* Set signal handler */
-#ifdef OSX
 		signal(SIGINT, catch_sigint);
-#else
-   		sigset(SIGINT, catch_sigint);
-#endif
 	
 		while(!caught_sigint)
 		{
@@ -427,7 +423,7 @@ printf("polldev %d\n", polldevs[j].fd);
 		        r = select(nfds, &read_fds, &write_fds, (fd_set *)0, 
 		                        (struct timeval *)0);
 		        if (r < 0)  /* select reported an error */
-			  return;
+			  return 1;
 		        {
 			    int j;
 			    
@@ -438,13 +434,13 @@ printf("polldev %d\n", polldevs[j].fd);
 		        if(FD_ISSET(sockfd, &read_fds))
 			{
 				clilen = maxclilen;
-				while( (n = recvfrom(sockfd, mbuf, MAXMESG, 0, &cl_addr, &clilen)) >0) 
+				while( (n = recvfrom(sockfd, mbuf, MAXMESG, 0, (struct sockaddr*)&cl_addr, (socklen_t*)&clilen)) >0) 
 				{
 				  int r;
 				  /* printf("received UDP packet of length %d\n",  n); */
 				  r = Synthmessage(mbuf, n, &cl_addr, clilen, sockfd) ;
 
-				  if( sgi_HaveToQuit()) return;
+				  if( sgi_HaveToQuit()) return 2;
 				  if(r>0) goto back;
 				  clilen = maxclilen;
 				}
@@ -452,14 +448,14 @@ printf("polldev %d\n", polldevs[j].fd);
 		        if(FD_ISSET(usockfd, &read_fds))
 			{
 				uclilen = umaxclilen;
-				while( (n = recvfrom(usockfd, mbuf, MAXMESG, 0, &ucl_addr, &uclilen)) >0) 
+				while( (n = recvfrom(usockfd, mbuf, MAXMESG, 0, (struct sockaddr *)&ucl_addr, (socklen_t*)&uclilen)) >0) 
 				{
 				  int r;
 				  /* printf("received UNIX packet of length %d\n",  n); */
 
 				  r=Synthmessage(mbuf, n, &ucl_addr, uclilen,usockfd) ;
 
-				  if( sgi_HaveToQuit()) return;
+				  if( sgi_HaveToQuit()) return 3;
 				  if(r>0) goto back;
 				  uclilen = umaxclilen;
 				}
