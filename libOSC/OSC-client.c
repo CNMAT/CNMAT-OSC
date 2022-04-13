@@ -56,9 +56,10 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 Windows Max/MSP externals with GCC!
 // Here's where to find htonl() in GCC/Cygwin/Windows
 #include <winsock2.h>
-#endif
+#else
 
 #include <arpa/inet.h> // htonl
+#endif
 
 char *OSC_errorMessage;
 

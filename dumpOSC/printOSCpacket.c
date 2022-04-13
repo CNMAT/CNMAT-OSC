@@ -11,7 +11,15 @@ extern void complain(char *s, ...);
 #include <string.h> // strncmp
 #include <ctype.h> // isprint
 #include <stdint.h> // uint32_t
+
+#if defined(WIN_VERSION) && defined(__GNUC__)
+#warning Congratulations on your good taste in...
+//Here is where we find htonl() in GCC/Cygwin/Windows
+#include <winsock2.h>
+#else
+//We find htonl() here on Mac/Linux
 #include <arpa/inet.h> // ntohl
+#endif
 
 #include "printOSCpacket.h"
 
